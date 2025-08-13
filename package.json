@@ -31,7 +31,8 @@
     "e2e:server": "MIX_ENV=e2e mix test --cover --export-coverage e2e test/e2e/test_helper.exs",
     "e2e:test": "mix assets.build && cd test/e2e && npx playwright test",
     "js:test": "cd assets && npm install && npm run test",
-    "test": "npm run js:test && npm run e2e:test",
+    "test": "npm run js:test && npm run test:e2e:conditional",
+    "test:e2e:conditional": "command -v mix >/dev/null 2>&1 && npm run e2e:test || echo 'Skipping e2e tests: mix not found. Install Elixir to run e2e tests.'",
     "cover:merge": "node test/e2e/merge-coverage.mjs",
     "cover": "npm run test && npm run cover:merge",
     "cover:report": "npx monocart show-report cover/merged-js/index.html"

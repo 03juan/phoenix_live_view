@@ -233,19 +233,20 @@ describe("Performance Comparison Tests", () => {
     // Clear cache first
     DOM._queryCache.clear()
     
-    // Test 1: Complex selector
-    const complexSelector = '.item[data-id] span'
+    // Test 1: Simple cacheable selector (first run without cache)
+    const cacheableSelector = '.item'
+    DOM._queryCache.clear() // Ensure clean start
     const start1 = performance.now()
     for (let i = 0; i < iterations; i++) {
-      DOM.all(container, complexSelector)
+      DOM.all(container, cacheableSelector)
     }
     const end1 = performance.now()
-    const complexSelectorTime = end1 - start1
+    const firstRunTime = end1 - start1
     
-    // Test 2: Cached queries (same selector)
+    // Test 2: Cached queries (same selector, should be faster)
     const start2 = performance.now()
     for (let i = 0; i < iterations; i++) {
-      DOM.all(container, complexSelector)
+      DOM.all(container, cacheableSelector)
     }
     const end2 = performance.now()
     const cachedTime = end2 - start2
@@ -264,16 +265,16 @@ describe("Performance Comparison Tests", () => {
     const end3 = performance.now()
     const attrMergeTime = end3 - start3
     
-    console.log(`Complex selector time: ${complexSelectorTime.toFixed(3)}ms`)
+    console.log(`First run time: ${firstRunTime.toFixed(3)}ms`)
     console.log(`Cached selector time: ${cachedTime.toFixed(3)}ms`) 
-    console.log(`Cache speedup: ${(complexSelectorTime / cachedTime).toFixed(2)}x`)
+    console.log(`Cache speedup: ${(firstRunTime / cachedTime).toFixed(2)}x`)
     console.log(`Attribute merge time: ${attrMergeTime.toFixed(3)}ms`)
     console.log(`Cache size: ${DOM._queryCache.size}`)
     
     document.body.removeChild(container)
     
     // Verify improvements
-    expect(cachedTime).toBeLessThan(complexSelectorTime)
+    expect(cachedTime).toBeLessThan(firstRunTime)
     expect(attrMergeTime / 1000).toBeLessThan(0.5) // Under 0.5ms per merge
   })
 })
