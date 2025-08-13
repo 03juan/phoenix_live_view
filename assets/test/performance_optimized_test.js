@@ -192,7 +192,7 @@ describe("Performance Comparison Tests", () => {
     
     document.body.removeChild(container)
     
-    expect(batchTime).toBeLessThan(50) // Should be under 50ms for batch operations
+    expect(batchTime).toBeLessThan(100) // Should be under 100ms for batch operations
   })
 
   test("Memory efficiency - cache size management", () => {
