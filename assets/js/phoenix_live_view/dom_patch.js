@@ -257,10 +257,16 @@ export default class DOMPatch {
             this.removeStreamChildElement(child)
           })
         }
-        deleteIds.forEach(id => {
-          let child = container.querySelector(`[id="${id}"]`)
+        // Performance optimization: batch query for multiple IDs
+        if(deleteIds.length > 1){
+          let selector = deleteIds.map(id => `[id="${id}"]`).join(',')
+          DOM.all(container, selector, child => {
+            this.removeStreamChildElement(child)
+          })
+        } else if(deleteIds.length === 1){
+          let child = container.querySelector(`[id="${deleteIds[0]}"]`)
           if(child){ this.removeStreamChildElement(child) }
-        })
+        }
       })
 
       // clear stream items from the dead render if they are not inserted again
@@ -270,9 +276,11 @@ export default class DOMPatch {
           // see https://github.com/phoenixframework/phoenix_live_view/issues/3047
           this.liveSocket.owner(el, (view) => {
             if(view === this.view){
-              Array.from(el.children).forEach(child => {
-                this.removeStreamChildElement(child)
-              })
+              // Performance optimization: use live HTMLCollection instead of Array.from
+              let children = el.children
+              for(let i = children.length - 1; i >= 0; i--){
+                this.removeStreamChildElement(children[i])
+              }
             }
           })
         })
@@ -363,18 +371,27 @@ export default class DOMPatch {
     if(!el.parentElement){ return }
 
     if(streamAt === 0){
-      el.parentElement.insertBefore(el, el.parentElement.firstElementChild)
+      // Optimize: only move if not already first
+      if(el.parentElement.firstElementChild !== el){
+        el.parentElement.insertBefore(el, el.parentElement.firstElementChild)
+      }
     } else if(streamAt > 0){
-      let children = Array.from(el.parentElement.children)
-      let oldIndex = children.indexOf(el)
-      if(streamAt >= children.length - 1){
-        el.parentElement.appendChild(el)
-      } else {
-        let sibling = children[streamAt]
-        if(oldIndex > streamAt){
-          el.parentElement.insertBefore(el, sibling)
+      // Performance optimization: use live HTMLCollection instead of Array.from
+      let children = el.parentElement.children
+      let oldIndex = Array.prototype.indexOf.call(children, el)
+      let targetIndex = Math.min(streamAt, children.length - 1)
+      
+      // Only move if position actually changed
+      if(oldIndex !== targetIndex){
+        if(streamAt >= children.length - 1){
+          el.parentElement.appendChild(el)
         } else {
-          el.parentElement.insertBefore(el, sibling.nextElementSibling)
+          let sibling = children[streamAt]
+          if(oldIndex > streamAt){
+            el.parentElement.insertBefore(el, sibling)
+          } else {
+            el.parentElement.insertBefore(el, sibling.nextElementSibling)
+          }
         }
       }
     }

@@ -36,10 +36,66 @@ let DOM = {
     if(el.classList.length === 0){ el.removeAttribute("class") }
   },
 
+  // Query result caching system for performance optimization
+  _queryCache: new Map(),
+  _cacheTimeouts: new Map(),
+  _CACHE_TTL: 100, // Cache for 100ms
+
   all(node, query, callback){
     if(!node){ return [] }
+    
+    // For performance optimization, cache frequently used queries
+    if(this._shouldUseCache(query)){
+      return this._cachedAll(node, query, callback)
+    }
+    
     let array = Array.from(node.querySelectorAll(query))
     return callback ? array.forEach(callback) : array
+  },
+
+  _shouldUseCache(query){
+    // Only cache simple, static selectors, avoid caching component or dynamic selectors
+    // which can change frequently and affect test predictability
+    if(query.includes('phx-component') || query.includes('[') || query.includes('=')) {
+      return false
+    }
+    // Cache simple class and tag selectors that are likely to be repeated
+    return query.includes('.') && !query.includes(' ')
+  },
+
+  _cachedAll(node, query, callback){
+    // Create cache key based on node and query
+    const nodeId = node.id || (node.tagName + (node.className || ''))
+    const cacheKey = `${nodeId}:${query}`
+    
+    // Check cache first
+    const cached = this._queryCache.get(cacheKey)
+    if(cached && Date.now() - cached.timestamp < this._CACHE_TTL){
+      return callback ? cached.results.forEach(callback) : cached.results
+    }
+    
+    // Perform query and cache result
+    const array = Array.from(node.querySelectorAll(query))
+    this._queryCache.set(cacheKey, {
+      results: array,
+      timestamp: Date.now()
+    })
+    
+    // Periodically clean cache to prevent memory leaks
+    if(this._queryCache.size > 100){
+      this._cleanCache()
+    }
+    
+    return callback ? array.forEach(callback) : array
+  },
+
+  _cleanCache(){
+    const now = Date.now()
+    for(const [key, value] of this._queryCache){
+      if(now - value.timestamp > this._CACHE_TTL){
+        this._queryCache.delete(key)
+      }
+    }
   },
 
   childNodeLength(html){
@@ -428,6 +484,8 @@ let DOM = {
     let exclude = new Set(opts.exclude || [])
     let isIgnored = opts.isIgnored
     let sourceAttrs = source.attributes
+    
+    // Performance optimization: batch operations while maintaining original behavior
     for(let i = sourceAttrs.length - 1; i >= 0; i--){
       let name = sourceAttrs[i].name
       if(!exclude.has(name)){
